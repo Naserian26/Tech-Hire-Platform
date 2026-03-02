@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: white; padding: 0; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+        .content { padding: 30px 20px; color: #333; line-height: 1.6; }
+        .btn { display: inline-block; background: #7c3aed; color: white; padding: 12px 30px; text-decoration: none; border-radius: 50px; font-weight: 600; margin-top: 25px; box-shadow: 0 4px 6px rgba(124, 58, 237, 0.3); }
+        .btn:hover { background: #6d28d9; }
+        .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+        .highlight { background-color: #ede9fe; color: #5b21b6; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Interview Invitation! 🎉</h1>
+        </div>
+        <div class="content">
+            <p>Hi <strong>{{ candidate_name }}</strong>,</p>
+            <p>Great news! <strong>{{ company_name }}</strong> has reviewed your application for <span class="highlight">{{ job_title }}</span> and wants to move forward.</p>
+            
+            <p>We have scheduled time for an interview. Please log in to your dashboard to view the details and confirm your attendance.</p>
+            
+            <div style="text-align: center;">
+                <a href="{{ frontend_url }}/seeker/interviews" class="btn">View Interview Details</a>
+            </div>
+        </div>
+        <div class="footer">
+            <p>TechHire Platform - AI Powered Recruitment</p>
+            <p>You received this email because you applied for a job on TechHire.</p>
+        </div>
+    </div>
+</body>
+</html>

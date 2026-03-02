@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: white; padding: 0; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #1e1b4b; color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+        .content { padding: 30px 20px; color: #333; line-height: 1.6; text-align: center; }
+        .btn { display: inline-block; background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
+        .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to TechHire 👋</h1>
+        </div>
+        <div class="content">
+            <p>Hi <strong>{{ name }}</strong>,</p>
+            <p>Your account has been successfully created. We are excited to help you find your next opportunity.</p>
+            <p>Complete your profile to get better AI recommendations.</p>
+            <a href="{{ frontend_url }}/seeker/profile" class="btn">Complete Profile</a>
+        </div>
+        <div class="footer">
+            <p>TechHire Platform</p>
+        </div>
+    </div>
+</body>
+</html>
