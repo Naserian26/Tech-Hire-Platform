@@ -548,7 +548,7 @@ interface AiMessage { role: 'user' | 'assistant'; text: string; }
 const EMPLOYER_SUGGESTIONS = [
   'Write a job description for a Senior React Developer',
   'What are good interview questions for a backend engineer?',
-  'How do I evaluate a candidate\'s cultural fit?',
+  "How do I evaluate a candidate's cultural fit?",
   'Help me write a rejection email that\'s kind and professional',
   'What salary range is competitive for a mid-level data scientist in Nairobi?',
   'How do I reduce time-to-hire?',
@@ -573,7 +573,13 @@ const AiCoachTab = ({ employerId }: { employerId: string }) => {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // ✅ FIXED: Added required API key and browser access headers
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
@@ -589,11 +595,20 @@ Be concise, practical, and actionable. Use bullet points and structure when help
           messages: messages.slice(-10).map(m => ({ role: m.role, content: m.text })).concat([{ role: 'user', content: msg }]),
         }),
       });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err?.error?.message || `API error ${response.status}`);
+      }
+
       const data = await response.json();
       const reply = data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n') || "I'm here to help!";
       setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', text: "Sorry, I'm having trouble connecting right now. Please try again in a moment." }]);
+    } catch (error: any) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        text: `⚠️ ${error.message || "Sorry, I'm having trouble connecting. Please check your API key in .env and try again."}`
+      }]);
     } finally {
       setLoading(false);
     }
