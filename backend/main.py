@@ -1,10 +1,19 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import connect_to_mongo, close_mongo_connection
-from app.api.v1 import auth, employer, jobs, seeker, ai, ai
-from app.websocket import manager
+from app.core.websocket_manager import manager  # ✅ fixed import
+from app.api.v1.router import api_router        # ✅ single router import
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_mongo()       # startup
+    yield
+    await close_mongo_connection() # shutdown
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,6 +22,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.websocket("/ws/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
@@ -23,19 +33,9 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
     except WebSocketDisconnect:
         manager.disconnect(user_id)
 
-@app.on_event("startup")
-async def startup_db_client():
-    await connect_to_mongo()
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    await close_mongo_connection()
+app.include_router(api_router, prefix="/api/v1")  # ✅ single clean include
 
-app.include_router(auth.router,     prefix="/api/v1/auth",     tags=["auth"])
-app.include_router(employer.router, prefix="/api/v1/employer", tags=["employer"])
-app.include_router(jobs.router,     prefix="/api/v1/jobs",     tags=["jobs"])
-app.include_router(seeker.router,   prefix="/api/v1/seeker",   tags=["seeker"])
-app.include_router(ai.router,       prefix="/api/v1/ai",       tags=["ai"])
 
 @app.get("/")
 def read_root():

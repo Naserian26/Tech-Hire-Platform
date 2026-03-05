@@ -4,6 +4,7 @@ import { useAuthStore } from './store/auth.store';
 import { useUiStore } from './store/ui.store';
 import LandingPage from './pages/LandingPage';
 import UnifiedAuthPage from './pages/auth/UnifiedAuthPage';
+import { ForgotPasswordPage, ResetPasswordPage, VerifyEmailPage } from './pages/auth/PasswordPages';
 import SeekerDashboard from './pages/seeker/SeekerDashboard';
 import SeekerProfile from './pages/seeker/SeekerProfile';
 import BrowseJobs from './pages/seeker/BrowseJobs';
@@ -170,12 +171,16 @@ const App = () => {
   return (
     <Router>
       <Routes>
+        {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<UnifiedAuthPage />} />
         <Route path="/auth/seeker" element={<Navigate to="/auth" replace />} />
         <Route path="/auth/employer" element={<Navigate to="/auth" replace />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-        {/* Seeker Routes */}
+        {/* Seeker routes */}
         <Route path="/seeker" element={
           user?.role === 'seeker' ? <Layout><SeekerDashboard /></Layout> : <Navigate to="/" />
         } />
@@ -192,7 +197,7 @@ const App = () => {
           user?.role === 'seeker' ? <Layout><PrivacySecurity /></Layout> : <Navigate to="/" />
         } />
 
-        {/* Employer Routes */}
+        {/* Employer routes */}
         <Route path="/employer" element={
           user?.role === 'employer' ? <Layout><EmployerDashboard /></Layout> : <Navigate to="/" />
         } />
@@ -206,6 +211,7 @@ const App = () => {
           user?.role === 'employer' ? <Layout><PrivacySecurity /></Layout> : <Navigate to="/" />
         } />
 
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

@@ -4,7 +4,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from celery import shared_task
 from jinja2 import Environment, FileSystemLoader
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 

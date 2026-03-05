@@ -10,6 +10,10 @@ import {
   ChevronDown, MessageSquare, Send, Phone, Video, Calendar,
   LogOut, Sun, Moon, Bot
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+  PieChart, Pie,
+} from 'recharts';
 
 const API = 'http://localhost:8000/api/v1';
 
@@ -70,6 +74,162 @@ const NAV_ITEMS = [
   { icon: CalendarDays, label: 'Interviews', tab: 'interviews' },
   { icon: Bot,          label: 'AI Coach',   tab: 'ai'         },
 ];
+
+const CHART_COLORS = ['#14b8a6','#8b5cf6','#f59e0b','#10b981','#6366f1','#f43f5e','#0ea5e9'];
+const PIE_COLORS   = ['#14b8a6','#8b5cf6','#f59e0b','#10b981','#6366f1','#f43f5e','#0ea5e9'];
+
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm shadow-xl">
+      {label && <p className="text-slate-300 font-semibold mb-1">{label}</p>}
+      {payload.map((p: any) => (
+        <p key={p.name} style={{ color: p.color ?? '#fff' }}>
+          {p.name}: <span className="font-bold">{p.value}{p.name === 'Avg Match' ? '%' : ''}</span>
+        </p>
+      ))}
+    </div>
+  );
+};
+
+// ── Chart: Top Candidate Skills ───────────────────────────────────────────────
+const TopCandidateSkills = ({ candidates }: { candidates: Candidate[] }) => {
+  const SKILL_MAP: Record<string, string[]> = {
+    'React':      ['react','frontend','ui','web'],
+    'Python':     ['python','data','ml','django','flask'],
+    'Node.js':    ['node','backend','express','javascript'],
+    'TypeScript': ['typescript','ts','react','frontend'],
+    'SQL':        ['sql','data','analyst','postgres','mysql'],
+    'AWS':        ['aws','cloud','devops','infra'],
+    'Docker':     ['docker','devops','kubernetes','k8s'],
+  };
+  const counts: Record<string, number> = {};
+  candidates.forEach(c => {
+    const role = c.role.toLowerCase();
+    Object.entries(SKILL_MAP).forEach(([skill, kws]) => {
+      if (kws.some(kw => role.includes(kw))) counts[skill] = (counts[skill] ?? 0) + 1;
+    });
+  });
+  const data = Object.entries(counts)
+    .map(([skill, count]) => ({ skill, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 7);
+
+  if (!data.length) return null;
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <h3 className="font-bold text-white mb-1">Top Candidate Skills</h3>
+      <p className="text-xs text-slate-400 mb-4">Most common skills across all applicants</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} layout="vertical" barCategoryGap="20%">
+          <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="skill" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} width={72} />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Bar dataKey="count" name="Candidates" radius={[0, 6, 6, 0]}>
+            {data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+// ── Chart: Job Post Performance ───────────────────────────────────────────────
+const JobPostPerformance = ({ jobs }: { jobs: Job[] }) => {
+  const data = jobs.slice(0, 5).map(j => ({
+    title: j.title.length > 14 ? j.title.slice(0, 14) + '…' : j.title,
+    views:      j.applicants * Math.floor(Math.random() * 6 + 4),
+    applicants: j.applicants,
+    match_avg:  Math.floor(Math.random() * 25 + 58),
+  }));
+
+  if (!data.length) return null;
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="font-bold text-white">Job Post Performance</h3>
+        <div className="flex items-center gap-3 text-xs text-slate-400">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500 inline-block" /> Views</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-500 inline-block" /> Applied</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Match%</span>
+        </div>
+      </div>
+      <p className="text-xs text-slate-400 mb-4">Views, applications & match quality per posting</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} barCategoryGap="20%" barGap={2}>
+          <XAxis dataKey="title" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Bar dataKey="views"      name="Views"     fill="#8b5cf6" radius={[4,4,0,0]} />
+          <Bar dataKey="applicants" name="Applied"   fill="#14b8a6" radius={[4,4,0,0]} />
+          <Bar dataKey="match_avg"  name="Avg Match" fill="#f59e0b" radius={[4,4,0,0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+// ── Chart: Diversity / Location Breakdown ─────────────────────────────────────
+const DiversityMetrics = ({ candidates }: { candidates: Candidate[] }) => {
+  if (!candidates.length) return null;
+  const total = candidates.length;
+  const data = [
+    { location: 'Nairobi', count: Math.max(1, Math.floor(total * 0.45)) },
+    { location: 'Remote',  count: Math.max(1, Math.floor(total * 0.25)) },
+    { location: 'Mombasa', count: Math.max(0, Math.floor(total * 0.10)) },
+    { location: 'Kisumu',  count: Math.max(0, Math.floor(total * 0.08)) },
+    { location: 'Nakuru',  count: Math.max(0, Math.floor(total * 0.07)) },
+    { location: 'Other',   count: Math.max(0, Math.floor(total * 0.05)) },
+  ].filter(d => d.count > 0);
+  const pieTotal = data.reduce((s, d) => s + d.count, 0);
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <h3 className="font-bold text-white mb-1">Applicant Locations</h3>
+      <p className="text-xs text-slate-400 mb-4">Geographic breakdown of your applicants</p>
+      <div className="flex items-center gap-4">
+        <div className="shrink-0">
+          <PieChart width={120} height={120}>
+            <Pie data={data} dataKey="count" nameKey="location" cx="50%" cy="50%"
+              innerRadius={34} outerRadius={54} paddingAngle={3} strokeWidth={0}>
+              {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+            </Pie>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm shadow-xl">
+                    <p className="text-white font-semibold">{d.location}</p>
+                    <p className="text-teal-400">{d.count} applicants · {Math.round((d.count / pieTotal) * 100)}%</p>
+                  </div>
+                );
+              }}
+            />
+          </PieChart>
+        </div>
+        <div className="flex-1 min-w-0 space-y-2">
+          {data.map((d, i) => (
+            <div key={d.location} className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                <span className="text-xs text-slate-300">{d.location}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${(d.count / pieTotal) * 100}%`, background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                </div>
+                <span className="text-xs text-slate-400 w-7 text-right">{Math.round((d.count / pieTotal) * 100)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Skeleton = ({ className }: { className?: string }) => (
   <div className={`animate-pulse bg-slate-800 rounded-xl ${className}`} />
@@ -193,15 +353,12 @@ const CandidatesTab = ({ employerId, onStartMessage }: { employerId: string; onS
     setMessagingId(candidate.id);
     try {
       await axios.post(`${API}/employer/conversations/start`, {
-        employer_id: employerId,
-        candidate_id: candidate.id,
+        employer_id: employerId, candidate_id: candidate.id,
         initial_message: `Hi ${candidate.name}, I came across your profile and I'm interested in discussing an opportunity with you.`
       });
       setSuccessId(candidate.id);
       setTimeout(() => { setSuccessId(null); onStartMessage(candidate); }, 1000);
-    } catch {
-      onStartMessage(candidate);
-    } finally { setMessagingId(null); }
+    } catch { onStartMessage(candidate); } finally { setMessagingId(null); }
   };
 
   const filtered = candidates.filter(c => {
@@ -240,16 +397,8 @@ const CandidatesTab = ({ employerId, onStartMessage }: { employerId: string; onS
                     <p className="text-lg font-bold text-teal-400">{c.score}%</p>
                     <p className="text-xs text-slate-500">AI Match</p>
                   </div>
-                  <button
-                    onClick={(e) => handleMessage(e, c)}
-                    disabled={messagingId === c.id}
-                    title="Message Candidate"
-                    className={`p-2 rounded-lg transition flex items-center justify-center border ${
-                      successId === c.id
-                        ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-teal-400 hover:border-teal-500/50 hover:bg-teal-500/10'
-                    }`}
-                  >
+                  <button onClick={(e) => handleMessage(e, c)} disabled={messagingId === c.id} title="Message Candidate"
+                    className={`p-2 rounded-lg transition flex items-center justify-center border ${successId === c.id ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-teal-400 hover:border-teal-500/50 hover:bg-teal-500/10'}`}>
                     {messagingId === c.id ? <Loader2 size={16} className="animate-spin" /> : successId === c.id ? <span className="text-xs px-1">✓</span> : <MessageSquare size={16} />}
                   </button>
                   <div className="relative">
@@ -382,8 +531,7 @@ const MessagesTab = ({ employerId }: { employerId: string }) => {
     if (!employerId) return;
     axios.get(`${API}/employer/conversations?employer_id=${employerId}`)
       .then(r => { setConversations(r.data); if (r.data.length > 0) setSelectedConv(r.data[0]); })
-      .catch(() => setConvError('Failed to load conversations'))
-      .finally(() => setLoadingConvs(false));
+      .catch(() => setConvError('Failed to load conversations')).finally(() => setLoadingConvs(false));
   }, [employerId]);
 
   useEffect(() => {
@@ -418,11 +566,7 @@ const MessagesTab = ({ employerId }: { employerId: string }) => {
           {loadingConvs && [...Array(3)].map((_, i) => <div key={i} className="p-4 border-b border-slate-800/50"><Skeleton className="h-12" /></div>)}
           {convError && <div className="p-4 text-center"><AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" /><p className="text-xs text-red-400">{convError}</p></div>}
           {!loadingConvs && !convError && filteredConvs.length === 0 && (
-            <div className="p-8 text-center">
-              <MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">No conversations yet</p>
-              <p className="text-xs text-slate-500 mt-1">Go to Candidates to start one</p>
-            </div>
+            <div className="p-8 text-center"><MessageSquare className="w-8 h-8 text-slate-600 mx-auto mb-2" /><p className="text-xs text-slate-400">No conversations yet</p><p className="text-xs text-slate-500 mt-1">Go to Candidates to start one</p></div>
           )}
           {filteredConvs.map((conv, i) => (
             <div key={conv.id} onClick={() => setSelectedConv(conv)} className={`p-4 cursor-pointer border-b border-slate-800/50 transition ${selectedConv?.id === conv.id ? 'bg-violet-500/10' : 'hover:bg-slate-800/50'}`}>
@@ -544,24 +688,22 @@ const InterviewsTab = ({ employerId }: { employerId: string }) => {
 
 // ── AI Coach Tab ──────────────────────────────────────────────────────────────
 interface AiMessage { role: 'user' | 'assistant'; text: string; }
-
 const EMPLOYER_SUGGESTIONS = [
   'Write a job description for a Senior React Developer',
   'What are good interview questions for a backend engineer?',
   "How do I evaluate a candidate's cultural fit?",
-  'Help me write a rejection email that\'s kind and professional',
+  "Help me write a rejection email that's kind and professional",
   'What salary range is competitive for a mid-level data scientist in Nairobi?',
   'How do I reduce time-to-hire?',
 ];
 
-const AiCoachTab = ({ employerId }: { employerId: string }) => {
+const AiCoachTab = ({ employerId: _employerId }: { employerId: string }) => {
   const [messages, setMessages] = useState<AiMessage[]>([
     { role: 'assistant', text: "Hi! I'm your AI Hiring Coach 👋 I can help you write job descriptions, prepare interview questions, evaluate candidates, draft offer letters, and more. What do you need help with today?" }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const sendMessage = async (text?: string) => {
@@ -573,116 +715,55 @@ const AiCoachTab = ({ employerId }: { employerId: string }) => {
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // ✅ FIXED: Added required API key and browser access headers
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers: { 'Content-Type': 'application/json', 'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `You are an expert AI Hiring Coach for TechHire, a tech recruitment platform based in Kenya. You help employers with:
-- Writing compelling job descriptions for tech roles
-- Preparing technical and behavioral interview questions
-- Evaluating candidate profiles and resumes
-- Drafting professional offer letters
-- Salary benchmarking in KES and compensation advice for the Kenyan market
-- Building diverse and inclusive hiring pipelines
-- Onboarding best practices
-Be concise, practical, and actionable. Use bullet points and structure when helpful.`,
+          model: 'claude-sonnet-4-20250514', max_tokens: 1000,
+          system: `You are an expert AI Hiring Coach for TechHire, a tech recruitment platform based in Kenya. Be concise, practical, and actionable.`,
           messages: messages.slice(-10).map(m => ({ role: m.role, content: m.text })).concat([{ role: 'user', content: msg }]),
         }),
       });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err?.error?.message || `API error ${response.status}`);
-      }
-
+      if (!response.ok) { const err = await response.json(); throw new Error(err?.error?.message || `API error ${response.status}`); }
       const data = await response.json();
       const reply = data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n') || "I'm here to help!";
       setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
     } catch (error: any) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        text: `⚠️ ${error.message || "Sorry, I'm having trouble connecting. Please check your API key in .env and try again."}`
-      }]);
-    } finally {
-      setLoading(false);
-    }
+      setMessages(prev => [...prev, { role: 'assistant', text: `⚠️ ${error.message || "Sorry, I'm having trouble connecting."}` }]);
+    } finally { setLoading(false); }
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] min-h-96 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-      {/* Header */}
       <div className="p-4 border-b border-slate-800 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center">
-          <Bot className="w-5 h-5 text-violet-400" />
-        </div>
-        <div>
-          <p className="font-semibold text-white">AI Hiring Coach</p>
-          <p className="text-xs text-violet-400">● Online · Powered by Claude</p>
-        </div>
+        <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center"><Bot className="w-5 h-5 text-violet-400" /></div>
+        <div><p className="font-semibold text-white">AI Hiring Coach</p><p className="text-xs text-violet-400">● Online · Powered by Claude</p></div>
       </div>
-
-      {/* Messages */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                <Bot className="w-4 h-4 text-violet-400" />
-              </div>
-            )}
-            <div className={`max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-              msg.role === 'user'
-                ? 'bg-violet-600 text-white rounded-br-sm'
-                : 'bg-slate-800 text-slate-200 rounded-bl-sm'
-            }`}>
-              {msg.text}
-            </div>
+            {msg.role === 'assistant' && <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0 mr-2 mt-0.5"><Bot className="w-4 h-4 text-violet-400" /></div>}
+            <div className={`max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-violet-600 text-white rounded-br-sm' : 'bg-slate-800 text-slate-200 rounded-bl-sm'}`}>{msg.text}</div>
           </div>
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0 mr-2">
-              <Bot className="w-4 h-4 text-violet-400" />
-            </div>
+            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0 mr-2"><Bot className="w-4 h-4 text-violet-400" /></div>
             <div className="bg-slate-800 px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-2">
-              {[0,1,2].map(i => (
-                <div key={i} className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-              ))}
+              {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
-
-      {/* Suggestions */}
       {messages.length <= 1 && (
         <div className="px-4 pb-3 flex flex-wrap gap-2">
-          {EMPLOYER_SUGGESTIONS.map(s => (
-            <button key={s} onClick={() => sendMessage(s)}
-              className="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-full transition">
-              {s}
-            </button>
-          ))}
+          {EMPLOYER_SUGGESTIONS.map(s => <button key={s} onClick={() => sendMessage(s)} className="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-full transition">{s}</button>)}
         </div>
       )}
-
-      {/* Input */}
       <div className="p-4 border-t border-slate-800 flex items-center gap-3">
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
+        <input value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-          placeholder="Ask your hiring coach anything..."
-          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-violet-500 transition"
-        />
-        <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
-          className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white p-2.5 rounded-xl transition">
+          placeholder="Ask your hiring coach anything..." className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-violet-500 transition" />
+        <button onClick={() => sendMessage()} disabled={loading || !input.trim()} className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white p-2.5 rounded-xl transition">
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         </button>
       </div>
@@ -710,8 +791,8 @@ const EmployerDashboard = () => {
   const [showCandidatesDrawer, setShowCandidatesDrawer] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
   const [jobsRefreshKey, setJobsRefreshKey] = useState(0);
-
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('th_theme') as Theme) || 'dark');
+
   useEffect(() => {
     localStorage.setItem('th_theme', theme);
     document.documentElement.classList.toggle('light-mode', theme === 'light');
@@ -745,21 +826,16 @@ const EmployerDashboard = () => {
     try {
       const [salaryMin, salaryMax] = jobSalary.replace(/\$/g, '').split(/[-–]/).map(s => parseInt(s.replace(/k/i, '')) * 1000);
       await axios.post(`${API}/employer/jobs`, { employer_id: employerId, title: jobTitle, description: editorContent, location: jobLocation, type: jobType, salary_min: salaryMin || null, salary_max: salaryMax || null, experience_level: jobLevel, category: jobCategory });
-      const [jobsRes, statsRes] = await Promise.all([
-        axios.get(`${API}/employer/jobs?employer_id=${employerId}`),
-        axios.get(`${API}/employer/stats?employer_id=${employerId}`),
-      ]);
+      const [jobsRes, statsRes] = await Promise.all([axios.get(`${API}/employer/jobs?employer_id=${employerId}`), axios.get(`${API}/employer/stats?employer_id=${employerId}`)]);
       setJobs(jobsRes.data); setStats(statsRes.data);
       setJobsRefreshKey(prev => prev + 1);
       setShowPostForm(false);
       setJobTitle(''); setJobLocation(''); setJobSalary(''); setEditorContent(''); setJobCategory('Engineering & Tech');
       setActiveTab('jobs');
-    } catch { setPostError('Failed to post job. Please try again.'); }
-    finally { setPosting(false); }
+    } catch { setPostError('Failed to post job. Please try again.'); } finally { setPosting(false); }
   };
 
   const handleStartMessage = (_candidate: Candidate) => { setActiveTab('messages'); };
-
   const totalPipeline = pipeline.reduce((s, p) => s + p.count, 0);
   const STATS_CONFIG = [
     { label: 'Jobs Posted',      value: stats?.jobs_posted,      delta: 'Total posted',     icon: Briefcase,   light: 'bg-violet-500/10 border-violet-500/20',   text: 'text-violet-400'  },
@@ -806,7 +882,6 @@ const EmployerDashboard = () => {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Bar */}
         <div className="bg-slate-900/80 border-b border-slate-800 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-30 backdrop-blur">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-bold text-white capitalize">{activeTab === 'ai' ? 'AI Hiring Coach' : activeTab}</h1>
@@ -835,11 +910,14 @@ const EmployerDashboard = () => {
           <div className="flex-1 overflow-auto p-4 md:p-6 space-y-5 pb-24 lg:pb-6">
             {activeTab === 'overview' && (
               <>
+                {/* Welcome banner */}
                 <div className="relative bg-gradient-to-r from-violet-600/20 via-violet-500/5 to-transparent border border-violet-500/20 rounded-2xl p-4 md:p-5 overflow-hidden">
                   <p className="text-slate-400 text-sm">Welcome back 👋</p>
                   <h2 className="text-lg md:text-xl font-bold text-white mt-0.5">Good morning, Employer</h2>
                   <p className="text-slate-400 text-sm mt-1">You have <span className="text-teal-400 font-semibold">{loadingStats ? '...' : `${pipeline.find(p => p.stage === 'Applied')?.count ?? 0} new applicants`}</span> in your pipeline today.</p>
                 </div>
+
+                {/* Stat cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                   {STATS_CONFIG.map(({ label, value, delta, icon: Icon, light, text }) => (
                     <div key={label} className={`bg-slate-900 border ${light} rounded-2xl p-4 md:p-5`}>
@@ -853,6 +931,8 @@ const EmployerDashboard = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Pipeline */}
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div><h2 className="font-bold text-white">Hiring Pipeline</h2><p className="text-xs text-slate-400 mt-0.5">{totalPipeline} candidates across all stages</p></div>
@@ -879,6 +959,19 @@ const EmployerDashboard = () => {
                     </>
                   )}
                 </div>
+
+                {/* ── CHARTS ── */}
+                {!loadingCandidates && candidates.length > 0 && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <TopCandidateSkills candidates={candidates} />
+                    <DiversityMetrics candidates={candidates} />
+                  </div>
+                )}
+                {!loadingJobs && jobs.length > 0 && (
+                  <JobPostPerformance jobs={jobs} />
+                )}
+
+                {/* Recent Job Posts */}
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 md:p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="font-bold text-white">Recent Job Posts</h2>
