@@ -121,6 +121,7 @@ async def get_top_candidates(employer_id: str, db=Depends(get_db)):
             initials = "".join(p[0].upper() for p in full_name.split()[:2])
             candidates.append({
                 "id": str(app["_id"]),
+                "seeker_id": str(app["seeker_id"]),  # ← needed for starting conversations
                 "name": full_name,
                 "role": seeker.get("current_role", job["title"]),
                 "score": app.get("match_score", 80),
@@ -194,22 +195,11 @@ async def create_job(job_data: dict, db=Depends(get_db)):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── NEW: Conversations (Messages Tab) ─────────────────────────────────────────
-# Collection: `conversations`
-# Document shape:
-#   { employer_id, candidate_id, created_at }
-#
-# Collection: `messages`
-# Document shape:
-#   { conversation_id, sender: "employer"|"candidate", text, created_at }
+# ── Conversations (Messages Tab) ──────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/conversations")
 async def get_conversations(employer_id: str, db=Depends(get_db)):
-    """
-    List all conversations for an employer, newest first.
-    Returns each conversation enriched with candidate info and last message.
-    """
     if not ObjectId.is_valid(employer_id):
         raise HTTPException(status_code=400, detail="Invalid employer ID")
 
@@ -223,13 +213,11 @@ async def get_conversations(employer_id: str, db=Depends(get_db)):
         if not candidate:
             continue
 
-        # Get last message for preview
         last_msg = await db.messages.find_one(
             {"conversation_id": conv["_id"]},
             sort=[("created_at", -1)]
         )
 
-        # Count unread messages sent by candidate
         unread_count = await db.messages.count_documents({
             "conversation_id": conv["_id"],
             "sender": "candidate",
@@ -239,7 +227,6 @@ async def get_conversations(employer_id: str, db=Depends(get_db)):
         full_name = candidate.get("full_name", candidate.get("email", "Unknown"))
         initials = "".join(p[0].upper() for p in full_name.split()[:2])
 
-        # Format time nicely
         last_time = ""
         if last_msg:
             msg_time = last_msg.get("created_at", datetime.utcnow())
@@ -275,21 +262,15 @@ async def get_conversations(employer_id: str, db=Depends(get_db)):
 
 @router.get("/conversations/{conversation_id}/messages")
 async def get_messages(conversation_id: str, db=Depends(get_db)):
-    """
-    Return all messages in a conversation, oldest first.
-    Also marks all candidate messages as read.
-    """
     if not ObjectId.is_valid(conversation_id):
         raise HTTPException(status_code=400, detail="Invalid conversation ID")
 
     conv_id = ObjectId(conversation_id)
 
-    # Verify conversation exists
     conv = await db.conversations.find_one({"_id": conv_id})
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Mark candidate messages as read
     await db.messages.update_many(
         {"conversation_id": conv_id, "sender": "candidate", "read": {"$ne": True}},
         {"$set": {"read": True}}
@@ -301,7 +282,7 @@ async def get_messages(conversation_id: str, db=Depends(get_db)):
     ).sort("created_at", 1):
         messages.append({
             "id": str(msg["_id"]),
-            "sender": msg.get("sender", "candidate"),  # "employer" | "candidate"
+            "sender": msg.get("sender", "candidate"),
             "text": msg.get("text", ""),
             "created_at": msg["created_at"].isoformat(),
         })
@@ -311,10 +292,6 @@ async def get_messages(conversation_id: str, db=Depends(get_db)):
 
 @router.post("/conversations/{conversation_id}/messages")
 async def send_message(conversation_id: str, body: dict, db=Depends(get_db)):
-    """
-    Send a message from the employer in a conversation.
-    Body: { "text": "..." }
-    """
     if not ObjectId.is_valid(conversation_id):
         raise HTTPException(status_code=400, detail="Invalid conversation ID")
 
@@ -339,7 +316,6 @@ async def send_message(conversation_id: str, body: dict, db=Depends(get_db)):
 
     result = await db.messages.insert_one(new_msg)
 
-    # Update conversation's updated_at so it sorts to top
     await db.conversations.update_one(
         {"_id": conv_id},
         {"$set": {"updated_at": now}}
@@ -353,7 +329,6 @@ async def send_message(conversation_id: str, body: dict, db=Depends(get_db)):
     }
 
 
-# ── UTILITY: Start a new conversation (call this when employer first messages a candidate)
 @router.post("/conversations")
 async def start_conversation(body: dict, db=Depends(get_db)):
     """
@@ -370,7 +345,6 @@ async def start_conversation(body: dict, db=Depends(get_db)):
     eid = ObjectId(employer_id)
     cid = ObjectId(candidate_id)
 
-    # Check if conversation already exists
     existing = await db.conversations.find_one({
         "employer_id": eid,
         "candidate_id": cid
@@ -390,30 +364,17 @@ async def start_conversation(body: dict, db=Depends(get_db)):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ── NEW: Interviews Tab ────────────────────────────────────────────────────────
-# Collection: `interviews`
-# Document shape:
-#   {
-#     employer_id, candidate_id, job_id,
-#     scheduled_at (datetime),
-#     interview_type: "Video Call" | "Phone Screen" | "On-site",
-#     status: "scheduled" | "completed" | "cancelled",
-#     created_at
-#   }
+# ── Interviews Tab ─────────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/interviews/stats")
 async def get_interview_stats(employer_id: str, db=Depends(get_db)):
-    """
-    Returns scheduled, this_week, and completed interview counts.
-    """
     if not ObjectId.is_valid(employer_id):
         raise HTTPException(status_code=400, detail="Invalid employer ID")
 
     eid = ObjectId(employer_id)
     now = datetime.utcnow()
 
-    # Start and end of current week (Monday–Sunday)
     week_start = now - timedelta(days=now.weekday())
     week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
     week_end = week_start + timedelta(days=7)
@@ -443,10 +404,6 @@ async def get_interview_stats(employer_id: str, db=Depends(get_db)):
 
 @router.get("/interviews")
 async def get_interviews(employer_id: str, db=Depends(get_db)):
-    """
-    Returns all interviews for an employer, sorted by scheduled_at ascending.
-    Enriches each with candidate name, role, and avatar initials.
-    """
     if not ObjectId.is_valid(employer_id):
         raise HTTPException(status_code=400, detail="Invalid employer ID")
 
@@ -462,7 +419,6 @@ async def get_interviews(employer_id: str, db=Depends(get_db)):
 
         full_name = candidate.get("full_name", candidate.get("email", "Unknown"))
         initials = "".join(p[0].upper() for p in full_name.split()[:2])
-
         scheduled_at = interview.get("scheduled_at", datetime.utcnow())
 
         result.append({
@@ -471,7 +427,7 @@ async def get_interviews(employer_id: str, db=Depends(get_db)):
             "candidate_name": full_name,
             "candidate_role": candidate.get("current_role", "Candidate"),
             "candidate_avatar": initials,
-            "scheduled_at": scheduled_at.isoformat(),   # frontend formats this → "Today · 2:00 PM"
+            "scheduled_at": scheduled_at.isoformat(),
             "interview_type": interview.get("interview_type", "Video Call"),
             "status": interview.get("status", "scheduled"),
         })
@@ -481,16 +437,6 @@ async def get_interviews(employer_id: str, db=Depends(get_db)):
 
 @router.post("/interviews")
 async def schedule_interview(body: dict, db=Depends(get_db)):
-    """
-    Schedule a new interview.
-    Body: {
-        "employer_id": "...",
-        "candidate_id": "...",
-        "job_id": "...",
-        "scheduled_at": "2026-03-01T15:30:00",   # ISO datetime string
-        "interview_type": "Video Call"             # or "Phone Screen" | "On-site"
-    }
-    """
     employer_id = body.get("employer_id")
     candidate_id = body.get("candidate_id")
     job_id = body.get("job_id")
@@ -529,10 +475,6 @@ async def schedule_interview(body: dict, db=Depends(get_db)):
 
 @router.put("/interviews/{interview_id}/status")
 async def update_interview_status(interview_id: str, body: dict, db=Depends(get_db)):
-    """
-    Update interview status.
-    Body: { "status": "completed" | "cancelled" }
-    """
     if not ObjectId.is_valid(interview_id):
         raise HTTPException(status_code=400, detail="Invalid interview ID")
 
@@ -549,13 +491,14 @@ async def update_interview_status(interview_id: str, body: dict, db=Depends(get_
         raise HTTPException(status_code=404, detail="Interview not found")
 
     return {"msg": "Interview status updated"}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# ── Employer Profile ──────────────────────────────────────────────────────────
+# ── Employer Profile ───────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
 @router.get("/profile")
 async def get_employer_profile(employer_id: str, db=Depends(get_db)):
-    """Get employer profile data."""
     if not ObjectId.is_valid(employer_id):
         raise HTTPException(status_code=400, detail="Invalid employer ID")
 
@@ -578,7 +521,6 @@ async def get_employer_profile(employer_id: str, db=Depends(get_db)):
 
 @router.put("/profile")
 async def update_employer_profile(employer_id: str, body: dict, db=Depends(get_db)):
-    """Update employer profile fields."""
     if not ObjectId.is_valid(employer_id):
         raise HTTPException(status_code=400, detail="Invalid employer ID")
 
