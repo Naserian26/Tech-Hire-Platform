@@ -65,8 +65,6 @@ const SettingsDropdown = () => {
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-
-          {/* User info */}
           <div className="px-4 py-3 border-b border-slate-800">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-primary-violet/20 flex items-center justify-center">
@@ -78,8 +76,6 @@ const SettingsDropdown = () => {
               </div>
             </div>
           </div>
-
-          {/* Theme toggle */}
           <div className="px-2 py-2 border-b border-slate-800">
             <p className="text-xs text-slate-500 px-2 py-1 uppercase tracking-wider">Appearance</p>
             <div className="flex gap-1 p-1">
@@ -101,46 +97,30 @@ const SettingsDropdown = () => {
               </button>
             </div>
           </div>
-
-          {/* Menu items */}
           <div className="px-2 py-2 border-b border-slate-800">
             <p className="text-xs text-slate-500 px-2 py-1 uppercase tracking-wider">Account</p>
-            <button
-              onClick={goToProfile}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition"
-            >
+            <button onClick={goToProfile} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition">
               <User className="w-4 h-4" /> My Profile
             </button>
-            <button
-              onClick={goToNotifications}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition"
-            >
+            <button onClick={goToNotifications} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition">
               <Bell className="w-4 h-4" /> Notification Preferences
             </button>
-            <button
-              onClick={goToPrivacy}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition"
-            >
+            <button onClick={goToPrivacy} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition">
               <Shield className="w-4 h-4" /> Privacy & Security
             </button>
           </div>
-
-          {/* Sign out */}
           <div className="px-2 py-2">
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition"
-            >
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition">
               <LogOut className="w-4 h-4" /> Sign Out
             </button>
           </div>
-
         </div>
       )}
     </div>
   );
 };
 
+// Global layout — used for seeker pages and shared pages only
 const Layout = ({ children }: { children: React.ReactNode }) => {
   useWebSocket();
   const navigate = useNavigate();
@@ -165,6 +145,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+// Employer layout — no global header, dashboard has its own
+const EmployerLayout = ({ children }: { children: React.ReactNode }) => {
+  useWebSocket();
+  return <>{children}</>;
+};
+
 const App = () => {
   const user = useAuthStore((state) => state.user);
 
@@ -180,7 +166,7 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-        {/* Seeker routes */}
+        {/* Seeker routes — use global Layout with top nav */}
         <Route path="/seeker" element={
           user?.role === 'seeker' ? <Layout><SeekerDashboard /></Layout> : <Navigate to="/" />
         } />
@@ -197,18 +183,18 @@ const App = () => {
           user?.role === 'seeker' ? <Layout><PrivacySecurity /></Layout> : <Navigate to="/" />
         } />
 
-        {/* Employer routes */}
+        {/* Employer routes — NO global header, dashboard is full-screen */}
         <Route path="/employer" element={
-          user?.role === 'employer' ? <Layout><EmployerDashboard /></Layout> : <Navigate to="/" />
+          user?.role === 'employer' ? <EmployerLayout><EmployerDashboard /></EmployerLayout> : <Navigate to="/" />
         } />
         <Route path="/employer/profile" element={
-          user?.role === 'employer' ? <Layout><EmployerProfile /></Layout> : <Navigate to="/" />
+          user?.role === 'employer' ? <EmployerLayout><EmployerProfile /></EmployerLayout> : <Navigate to="/" />
         } />
         <Route path="/employer/notifications" element={
-          user?.role === 'employer' ? <Layout><NotificationPreferences /></Layout> : <Navigate to="/" />
+          user?.role === 'employer' ? <EmployerLayout><NotificationPreferences /></EmployerLayout> : <Navigate to="/" />
         } />
         <Route path="/employer/privacy" element={
-          user?.role === 'employer' ? <Layout><PrivacySecurity /></Layout> : <Navigate to="/" />
+          user?.role === 'employer' ? <EmployerLayout><PrivacySecurity /></EmployerLayout> : <Navigate to="/" />
         } />
 
         {/* Fallback */}
